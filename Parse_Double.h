@@ -3,7 +3,7 @@
 #if defined(__clang__)
 
 static inline uint64_t _shlx_u64(uint64_t __X, unsigned int __Y) {
-    return __X << __Y;
+    return __X << (__Y & 63u);
 }
 
 #endif
@@ -93,8 +93,8 @@ namespace parse_double{
         inline double compute_min_10(const u64 sig, const u32 frac) noexcept {
             // extremely load heavy - look into?
 
-            __assume(sig != 0);
-            __assume(frac >= 1 && frac <= 14);
+            TATAI_ASSUME(sig != 0);
+            TATAI_ASSUME(frac >= 1 && frac <= 14);
 
             const auto packed = (u64)PACKED_POW5[frac];
 
@@ -114,11 +114,20 @@ namespace parse_double{
             // but masking it causes MSVC to generate an extra AND that isnt needed
 
             u64 p_h;
-
+#if defined(_MSC_VER)
             const auto p_l = (u64)_umul128(sig, DECIMAL_R[frac], &p_h);
+#else
+            const auto product = (__uint128_t)sig * DECIMAL_R[frac];
+            const auto p_l = (u64)product;
+            p_h = (u64)(product >> 64);
+#endif
             const auto lo = _shlx_u64(sig, shift);
 
+#if defined(_MSC_VER)
             auto q = (u64)__shiftright128(p_l, p_h, reciprocal_shift);
+#else
+            auto q = (u64)((((__uint128_t)p_h << 64) | p_l) >> reciprocal_shift);
+#endif
 
             const u64 x = lo - u64(q * d) + u64(d >> 1u);
 
@@ -207,7 +216,7 @@ namespace parse_double{
             return table;
         }();
 
-        __forceinline u64 compute_decimal16(__m128i shuff) {
+        TATAI_FORCE_INLINE u64 compute_decimal16(__m128i shuff) {
 
             const auto inter0 = _mm_maddubs_epi16(shuff, _mm_setr_epi8(10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1));
 

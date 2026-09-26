@@ -4,7 +4,7 @@
 #include "Slider_Body_Pop4.h"
 #include "Slider_Body_Neg.h"
 
-__forceinline void parse_slider_pair_GENERAL(const __m128i m0, const __m128i shuffle, slider_point* const out) noexcept {
+TATAI_FORCE_INLINE void parse_slider_pair_GENERAL(const __m128i m0, const __m128i shuffle, slider_point* const out) noexcept {
 
     const auto d = _mm_shuffle_epi8(m0, shuffle);
     
@@ -16,7 +16,7 @@ __forceinline void parse_slider_pair_GENERAL(const __m128i m0, const __m128i shu
 
 }
 
-__forceinline u32 parse_two_slider_points(const char* __restrict p, slider_point* const __restrict out) {
+TATAI_FORCE_INLINE u32 parse_two_slider_points(const char* __restrict p, slider_point* const __restrict out) {
 
     // still need error flag detection for objects outside the digit range of 1-3
     //      example: 0:1234
@@ -75,8 +75,7 @@ __forceinline u32 parse_two_slider_points(const char* __restrict p, slider_point
             
             parse_slider_pair_GENERAL(digits, _mm_load_si128((const __m128i*)(tbl + key)), out);
 
-            unsigned long consumed;
-            _BitScanReverse(&consumed, first2);
+            const u32 consumed = 31u - std::countl_zero(first2);
 
             return (1u | (1 << 24)) + (consumed << 24u) ;
         }
@@ -110,8 +109,7 @@ __forceinline u32 parse_two_slider_points(const char* __restrict p, slider_point
             out
         );
 
-        unsigned long consumed;
-        _BitScanReverse(&consumed, first4);
+        const u32 consumed = 31u - std::countl_zero(first4);
 
         return ((2u | (1 << 24)) | ((first4 & commas) << 8)) + (consumed << 24);
     }
@@ -121,7 +119,7 @@ __forceinline u32 parse_two_slider_points(const char* __restrict p, slider_point
 #include "Parse_Double.h"
 
 //__declspec(noinline)
-__forceinline
+TATAI_FORCE_INLINE
 void parse_slider_body(const char*__restrict p, slider_point* __restrict slider_ptr, _slider_data *const __restrict r) {
 
     { // hitsound

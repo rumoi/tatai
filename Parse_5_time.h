@@ -64,7 +64,7 @@ namespace parse_5_time {
 
     inline constexpr u8 const* SHUF_XY_INDEX_5D{ SHUF_XY_STORAGE_5D.data() + 64 - 10 };
 
-    __forceinline u32 parse_object_5digit_single(const char* __restrict p, _object_header* const __restrict out_object) {
+    TATAI_FORCE_INLINE u32 parse_object_5digit_single(const char* __restrict p, _object_header* const __restrict out_object) {
 
         const auto m0 = _mm_loadu_si128((__m128i const*)p);
 
@@ -125,11 +125,11 @@ namespace parse_5_time {
         return consumed;
     }
 
-    __declspec(noinline) u32 NO_INLINE_parse_object_5digit_single(const char* __restrict p, _object_header* const __restrict out_object) {
+    TATAI_NO_INLINE u32 NO_INLINE_parse_object_5digit_single(const char* __restrict p, _object_header* const __restrict out_object) {
         return parse_object_5digit_single(p, out_object);
     }
 
-    __forceinline u32 parse_object_5digit_pair(const char* __restrict p0, const char* __restrict p1,
+    TATAI_FORCE_INLINE u32 parse_object_5digit_pair(const char* __restrict p0, const char* __restrict p1,
         _object_header* const __restrict out_object) {
 
 

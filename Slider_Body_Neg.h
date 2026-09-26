@@ -80,7 +80,7 @@ namespace slider_body_neg {
             return table;
         }();
 
-    __declspec(noinline) u32 parse_slider_point_negative(const char*__restrict p, slider_point* __restrict const out, const u32 in, const u32 com) noexcept {
+    TATAI_NO_INLINE u32 parse_slider_point_negative(const char*__restrict p, slider_point* __restrict const out, const u32 in, const u32 com) noexcept {
 
         const auto input = _mm_loadu_si128((const __m128i*)p);
         const auto digits = _mm_sub_epi8(input, _mm_set1_epi8('0'));

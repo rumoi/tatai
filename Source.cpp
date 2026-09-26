@@ -3,9 +3,23 @@
 #include <array>
 #include <fstream>
 #include <type_traits>
+#include <bit>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <utility>
 
 #include <immintrin.h>
+#if defined(_MSC_VER)
 #include <intrin.h>
+#define TATAI_FORCE_INLINE __forceinline
+#define TATAI_NO_INLINE __declspec(noinline)
+#define TATAI_ASSUME(condition) __assume(condition)
+#else
+#define TATAI_FORCE_INLINE inline __attribute__((always_inline))
+#define TATAI_NO_INLINE __attribute__((noinline))
+#define TATAI_ASSUME(condition) __builtin_assume(condition)
+#endif
 
 #include <chrono>
 
@@ -143,24 +157,24 @@ struct _slider_deferral {
 
 int total_count_opt{};
 
-[[nodiscard]] __forceinline u64 load_u64(const void* p) noexcept {
+[[nodiscard]] TATAI_FORCE_INLINE u64 load_u64(const void* p) noexcept {
     u64 v;
     std::memcpy(&v, p, sizeof(v));
     return v;
 }
 
-[[nodiscard]] __forceinline u32 load_u32(const void* p) noexcept {
+[[nodiscard]] TATAI_FORCE_INLINE u32 load_u32(const void* p) noexcept {
     u32 v;
     std::memcpy(&v, p, sizeof(v));
     return v;
 }
 
-[[nodiscard]] __forceinline u16 load_u16(const void* p) noexcept {
+[[nodiscard]] TATAI_FORCE_INLINE u16 load_u16(const void* p) noexcept {
     u16 v;
     std::memcpy(&v, p, sizeof(v));
     return v;
 }
-[[nodiscard]] __forceinline u8 load_u8(const void* p) noexcept {
+[[nodiscard]] TATAI_FORCE_INLINE u8 load_u8(const void* p) noexcept {
     u8 v;
     std::memcpy(&v, p, sizeof(v));
     return v;
@@ -168,7 +182,7 @@ int total_count_opt{};
 
 namespace parse_integer_m3 {
 
-    __forceinline u32 fixed_likely_1(u32 x, u32 digits) {
+    TATAI_FORCE_INLINE u32 fixed_likely_1(u32 x, u32 digits) {
 
         const u32 d0 = x & 0xf;
 
@@ -184,7 +198,7 @@ namespace parse_integer_m3 {
         return d0 * 100 + d1 * 10 + d2;
     }
 
-    __forceinline u32 fixed_likely_3(u32 x, u32 digits) {
+    TATAI_FORCE_INLINE u32 fixed_likely_3(u32 x, u32 digits) {
 
         x &= 0x0f0f0f0f;
 
@@ -203,7 +217,7 @@ namespace parse_integer_m3 {
     }
 
     template<size_t SHIFT = 0>
-    __forceinline std::tuple<u32, u32> likely_1(const u32 x) {
+    TATAI_FORCE_INLINE std::tuple<u32, u32> likely_1(const u32 x) {
 
         const u32 d0 = u8(x) & 0x0fu;
 
@@ -261,7 +275,7 @@ namespace parse_integer_m3 {
 namespace parse_integer_m2 {
 
 
-    __forceinline u64 likely_1(u64 x) {
+    TATAI_FORCE_INLINE u64 likely_1(u64 x) {
 
         const u64 d0 = u8(x) & 0x0fu;
 
@@ -360,7 +374,7 @@ struct _memory_region {
 };
 
 template <auto parse_func>
-__declspec(noinline) u64 parse_object_loop(
+TATAI_NO_INLINE u64 parse_object_loop(
     const char* const* __restrict pos,
     _object_header* __restrict object,
     _slider_data* __restrict object_data,
@@ -398,7 +412,7 @@ __declspec(noinline) u64 parse_object_loop(
 }
 
 template <auto parse_func>
-__declspec(noinline) u64 PAIR_parse_object_loop(
+TATAI_NO_INLINE u64 PAIR_parse_object_loop(
     const char* const* __restrict pos,
     _object_header* __restrict object,
     _slider_data* __restrict object_data,

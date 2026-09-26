@@ -64,7 +64,7 @@ namespace parse_4_time {
 
     inline constexpr u8 const* SHUF_XY_INDEX{ SHUF_XY_STORAGE.data() + 64 - 10 };
 
-    __forceinline u32 parse_object_4digit_single(const char* __restrict p, _object_header* const __restrict out_object) {
+    TATAI_FORCE_INLINE u32 parse_object_4digit_single(const char* __restrict p, _object_header* const __restrict out_object) {
 
         const auto m0 = _mm_loadu_si128((__m128i const*)p);
 
