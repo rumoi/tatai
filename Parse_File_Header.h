@@ -48,7 +48,7 @@ const char** parse_timing_points(_memory_region_header* __restrict MEM,
 
 	_timing_point* timing_point{ MEM->get_timing_point()};
 
-	float last_anchor{ 0.f };
+	double last_anchor{ 0. };
 	double last_values[2]{ -1.,-1. };
 
 	u32 digit_count{ 8 };
@@ -60,57 +60,85 @@ const char** parse_timing_points(_memory_region_header* __restrict MEM,
 
 		const auto line64 = load_u64(line_start);
 
-		if (line64 == str_to_u64("[HitObjects]"))
-			break;
+		u64 check;
+		u32 time;
 
 		{
 			const u8 is_first_digit = u8(*line_start) - u8('0');
 
-			if (is_first_digit > 9u)
-				continue;
+			if (is_first_digit > 9u) {
+
+				if (line64 == str_to_u64("[HitObjects]"))
+					break;
+
+				if (u8(line64) != '-')
+					continue;
+
+				// negative times only lead a section, so find the comma directly and leave digit_count to the positive times
+				line_start += _tzcnt_u32((u32)_mm_movemask_epi8(_mm_cmpeq_epi8(_mm_loadu_si128((__m128i const*)line_start), _mm_set1_epi8(',')))) + 1;
+
+				check = load_u64(line_start);
+
+				if (last_value == check)
+					continue;
+
+				// negative times are stored as 0
+				time = 0;
+
+				goto parse_beat_length;
+			}
 
 		}
 
-		while (digit_count < 64 && ((u8)(line64 >> digit_count) != ','))
-			digit_count += 8;
+		{
+			while (digit_count < 64 && ((u8)(line64 >> digit_count) != ','))
+				digit_count += 8;
 
-		const auto digit_actual{ digit_count >> 3 };
+			const auto digit_actual{ digit_count >> 3 };
 
-		timing_point->time = parse_ascii_SWAR(line64, digit_actual);
+			line_start += digit_actual + 1;
 
-		const bool is_inherited = (line_start[digit_actual + 1] == '-');
+			// the key starts at the sign so an inherited and an uninherited line never compare equal
+			check = load_u64(line_start);
 
-		line_start += digit_actual + 1 + is_inherited;
+			if (last_value == check)
+				continue;
 
-		const auto check = load_u64(line_start);
+			time = parse_ascii_SWAR(line64, digit_actual);
+		}
 
-		if (last_value == check)
-			continue;
+	parse_beat_length:
 
 		last_value = check;
 
-		const auto f = u32(check) == str_to_u32("100,") ? 100. : parse_double::from_ascii::parse_decimal_16(line_start);
+		const bool is_inherited = (*line_start == '-');
+
+		line_start += is_inherited;
+
+		timing_point->time = time;
+
+		const auto f = u32(check >> (is_inherited * 8)) == str_to_u32("100,") ? 100. : parse_double::from_ascii::parse_decimal_16(line_start);
 
 		if (is_inherited) {
 
 			timing_point->beat_length = last_anchor * (0.01 * f);
 
-			if constexpr (is_under_v8) {
-
-				timing_point->tick_beat_length = timing_point->beat_length;
-
-			} else {
-
-				timing_point->tick_beat_length = last_anchor;
-
-			}
-
 		} else {
 
 			timing_point->beat_length = f;
-			timing_point->tick_beat_length = f;
 
 			last_anchor = f;
+
+		}
+
+		// an uninherited line is its own anchor, so v8+ ticks always follow last_anchor
+		if constexpr (is_under_v8) {
+
+			timing_point->tick_beat_length = timing_point->beat_length;
+
+		} else {
+
+			timing_point->tick_beat_length = last_anchor;
 
 		}
 
