@@ -621,8 +621,9 @@ __declspec(noinline) void push_error_slider_body_list(_slider_data* const object
 
 #include <cstdlib>
 
+// might as well soft suggest it as inline, maybe future compilers can do something crazy with it
 template <auto parse_func>
-__declspec(noinline) u64 parse_object_loop(
+inline u64 parse_object_loop(
 	const char* const* __restrict pos,
 	_object_header* __restrict object,
 	_slider_data* __restrict object_data,
@@ -646,70 +647,19 @@ __declspec(noinline) u64 parse_object_loop(
 
 		_mm_prefetch(*(pos + 8), _MM_HINT_T0);
 
+
 		*defer = { p + con, object_data };
 		defer = (_slider_deferral*)((u8*)defer + ((object->type & 2u) << 3));
 
+		if (EXPECT_PROB(object->type & 8u, 0.0057)) UNLIKELY_ARM{
+
+			parse_spinner(p + con, (_spinner_data*)object_data);
+
+		}
 
 		++pos;
 		++object;
 		++object_data;
-
-	}
-
-	return (pos - start) | (u64(defer - start_defer) << 32);
-}
-
-template <auto parse_func>
-__declspec(noinline) u64 PAIR_parse_object_loop(
-	const char* const* __restrict pos,
-	_object_header* __restrict object,
-	_slider_data* __restrict object_data,
-	_slider_deferral* __restrict defer
-) {
-
-	const auto* start = pos;
-	const auto* start_defer = defer;
-
-
-	for (;;) {
-
-		const char* p = *pos;
-
-		if (p == nullptr)
-			break;
-
-		const char* p1 = *(pos + 1);
-
-		if (p1 == nullptr) {
-			break;
-		}
-
-		const auto t = parse_func(p, p1, object);
-		//const auto t = parse_7_time::parse_object_7digit_SIMD_pair(p, p1, object);
-
-		auto con0 = u8(t);
-
-		if (con0 == 0) [[unlikely]]
-			break;
-
-		*defer = { p + con0, object_data };
-		defer = (_slider_deferral*)((u8*)defer + ((object->type & 2u) << 3));
-
-		auto con1 = t >> 8;
-
-		if (con1 == 0) [[unlikely]] {
-			pos += 1;
-			object += 1;
-			object_data += 1;
-			break;
-		}
-
-		*defer = { p1 + con1, object_data + 1 };
-		defer = (_slider_deferral*)((u8*)defer + (((object+1)->type & 2u) << 3));
-
-		pos += 2;
-		object += 2;
-		object_data += 2;
 
 	}
 
@@ -803,7 +753,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 
 		for (; (p + 64) <= end; p += 63) {
 
-			_mm_prefetch(p + 512, _MM_HINT_T0);
+			_mm_prefetch(p + 1024, _MM_HINT_T0);
 
 			const auto v0 = _mm256_loadu_si256((__m256i const*)(p + 0x00));
 			const auto v1 = _mm256_loadu_si256((__m256i const*)(p + 0x20));
@@ -968,7 +918,6 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 				parse5: //if (*line_ptr == nullptr) goto parse_finished;
 					{
 
-						//const auto res = PAIR_parse_object_loop<parse_5_time::parse_object_5digit_pair>(
 						const auto res = parse_object_loop<parse_5_time::parse_object_5digit_single>(
 							line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
@@ -984,8 +933,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 
 				parse6: if (line_ptr == line_ptr_end) goto parse_finished;
 					{
-						// only pair that wins for now
-						//const auto res = PAIR_parse_object_loop<parse_6_time::parse_object_6digit_pair>(
+
 						const auto res = parse_object_loop<parse_6_time::parse_object_6digit_single>(
 							line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
@@ -1001,7 +949,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 
 				parse7: if (line_ptr == line_ptr_end) goto parse_finished;
 					{
-						//const auto res = PAIR_parse_object_loop<parse_7_time::parse_object_7digit_SIMD_pair>(
+
 						const auto res = parse_object_loop<parse_7_time::parse_object_7digit_single>(
 							line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
@@ -1342,21 +1290,21 @@ void run_test_folder() {
 
 }
 
-//#include "state_test.h"
-
 int main() {
 
-	run_test_prebatch();
+	//run_test_prebatch();
+	//
+	//return 0;
 	
-	return 0;
-	
-	//SetThreadAffinityMask(GetCurrentThread(), 1ull << 2);
+	SetThreadAffinityMask(GetCurrentThread(), 1ull << 2);
 	////
 	//run_test_folder();
 	//return 0;
-
 	auto data = read_file("within_objects.txt");
+	
 	//auto data = read_file("test.osu");
+
+
 
 	data.push_back('\n');
 	data.resize(data.size() + 128);

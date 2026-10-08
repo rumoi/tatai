@@ -21,7 +21,9 @@ u32 general_parse_slider_points(const char* __restrict p,
 		if (i != (line_size-1) && p[i] != ',')
 			continue;
 
-		values[count] = std::string_view(p + start_i, i - start_i);
+		const bool is_last = (i == line_size - 1) && (p[i] != '\r');
+
+		values[count] = std::string_view(p + start_i, i - start_i + is_last);
 		start_i = i+1;
 
 		if (++count == 3)
@@ -119,8 +121,8 @@ u32 general_parse_slider_points(const char* __restrict p,
 
 	{
 
-		if (values[2].back() == '\r')
-			values[2].remove_suffix(1);
+		//if (values[2].back() == '\r')
+		//	values[2].remove_suffix(1);
 
 		const char* first = values[2].data();
 		const char* last = first + values[2].size();

@@ -1,26 +1,19 @@
 #pragma once
 
+void parse_spinner(const char* p, _spinner_data* o) {
 
-//template<u32 min_digit_count>
-void parse_spinner(const char* p) {
+	{ // hitsound	
 
-	//constexpr u32 min_digit_count = 6;
-	//
-	//p += 2;
-	//
-	//u64 res{};
-	//while (*p != '\r' && *p != '\n' && *p != ',') {
-	//
-	//
-	//	res *= 10;
-	//
-	//	res += (*p & 0xf);
-	//
-	//	++p;
-	//
-	//}
-	//
-	//
-	//int a = 2;
+		if (EXPECT_PROB(p[1] == ',', 0.9994)) LIKELY_ARM {
+			p += 2;
+
+		} else {
+			p += 3;
+
+		}
+
+	}
+
+	std::from_chars(p, p + 10, o->end_time);
 
 }
