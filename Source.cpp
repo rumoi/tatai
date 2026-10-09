@@ -177,6 +177,7 @@ static_assert(sizeof(_object_header_error) == sizeof(_object_header));
 
 struct _spinner_data {
 	u32 end_time;
+	u32 padding0[7];
 };
 
 struct _slider_data {
@@ -506,7 +507,7 @@ struct _memory_region_header {
 	void print_map_data() {
 
 		_object_header* o{ get_object_header() };
-		_slider_data* s{ get_object_body() };
+		_object_body* s{ (_object_body*)get_object_body() };
 
 		for (size_t i{}, size{ELEM_COUNT[MEM_object_header]}; i < size; ++i) {
 
@@ -514,11 +515,17 @@ struct _memory_region_header {
 
 			if (o[i].type & 2) {
 
-				printf("\n  %i %f  ", s[i].slides, s[i].length);
-				const auto* p{ s[i].point_start };
-				for (; p != s[i].point_end; ++p) {
+				printf("\n  %i %f  ", s[i].slider.slides, s[i].slider.length);
+				const auto* p{ s[i].slider.point_start };
+				for (; p != s[i].slider.point_end; ++p) {
 					printf("%i:%i|", p->x, p->y);
 				}
+
+			}
+
+			if (o[i].type & 8) {
+
+				printf("end_time: %i", s[i].spinner.end_time);
 
 			}
 
@@ -621,8 +628,32 @@ __declspec(noinline) void push_error_slider_body_list(_slider_data* const object
 
 #include <cstdlib>
 
+
+template <u32 DIGITS>
+__forceinline u32 parse_object_selector(
+	const char* __restrict p,
+	_object_header* __restrict object
+) noexcept {
+
+	if constexpr (DIGITS == 4) {
+		return parse_4_time::parse_object_4digit_single(p, object);
+	}
+	else if constexpr (DIGITS == 5) {
+		return parse_5_time::parse_object_5digit_single(p, object);
+	}
+	else if constexpr (DIGITS == 6) {
+		return parse_6_time::parse_object_6digit_single(p, object);
+	}
+	else if constexpr (DIGITS == 7) {
+		return parse_7_time::parse_object_7digit_single(p, object);
+	}
+	else {
+		static_assert(DIGITS >= 4 && DIGITS <= 7);
+	}
+}
+
 // might as well soft suggest it as inline, maybe future compilers can do something crazy with it
-template <auto parse_func>
+template <u32 DIGITS>
 inline u64 parse_object_loop(
 	const char* const* __restrict pos,
 	_object_header* __restrict object,
@@ -640,20 +671,19 @@ inline u64 parse_object_loop(
 		if (p == nullptr) [[unlikely]]
 			break;
 
-		const auto con = parse_func(p, object);
+		const auto con = parse_object_selector<DIGITS>(p, object);
 
 		if (con == 0) [[unlikely]]
 			break;
 
 		_mm_prefetch(*(pos + 8), _MM_HINT_T0);
 
-
 		*defer = { p + con, object_data };
 		defer = (_slider_deferral*)((u8*)defer + ((object->type & 2u) << 3));
 
 		if (EXPECT_PROB(object->type & 8u, 0.0057)) UNLIKELY_ARM{
 
-			parse_spinner(p + con, (_spinner_data*)object_data);
+			parse_spinner<DIGITS>(p + con, (_spinner_data*)object_data);
 
 		}
 
@@ -903,7 +933,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 				parse4: //if (*line_ptr == nullptr) goto parse_finished;
 					{
 						
-						const auto res = parse_object_loop<parse_4_time::parse_object_4digit_single>(line_ptr, object_ptr, object_data_ptr, slider_defer_table);
+						const auto res = parse_object_loop<4>(line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
 						slider_defer_table += u32(res >> 32);
 
@@ -918,8 +948,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 				parse5: //if (*line_ptr == nullptr) goto parse_finished;
 					{
 
-						const auto res = parse_object_loop<parse_5_time::parse_object_5digit_single>(
-							line_ptr, object_ptr, object_data_ptr, slider_defer_table);
+						const auto res = parse_object_loop<5>(line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
 						slider_defer_table += u32(res >> 32);
 
@@ -934,8 +963,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 				parse6: if (line_ptr == line_ptr_end) goto parse_finished;
 					{
 
-						const auto res = parse_object_loop<parse_6_time::parse_object_6digit_single>(
-							line_ptr, object_ptr, object_data_ptr, slider_defer_table);
+						const auto res = parse_object_loop<6>(line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
 						slider_defer_table += u32(res >> 32);
 
@@ -950,8 +978,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 				parse7: if (line_ptr == line_ptr_end) goto parse_finished;
 					{
 
-						const auto res = parse_object_loop<parse_7_time::parse_object_7digit_single>(
-							line_ptr, object_ptr, object_data_ptr, slider_defer_table);
+						const auto res = parse_object_loop<7>(line_ptr, object_ptr, object_data_ptr, slider_defer_table);
 
 						slider_defer_table += u32(res >> 32);
 
@@ -1064,7 +1091,7 @@ void parse_beatmap_from_memory(_memory_region_header* __restrict MEM, char const
 #include <filesystem>
 #include <iostream>
 
-#define _DO_VTUNE
+//#define _DO_VTUNE
 
 #ifdef _DO_VTUNE
 #include "C:\Program Files (x86)\Intel\oneAPI\vtune\latest\include\ittnotify.h"
@@ -1295,21 +1322,20 @@ int main() {
 	//run_test_prebatch();
 	//
 	//return 0;
-	
+	//
 	SetThreadAffinityMask(GetCurrentThread(), 1ull << 2);
-	////
+	//////
 	//run_test_folder();
 	//return 0;
+
+	_memory_region_new* MR{ create_memory_region(0) };
+
 	auto data = read_file("within_objects.txt");
-	
-	//auto data = read_file("test.osu");
-
-
 
 	data.push_back('\n');
 	data.resize(data.size() + 128);
 
-	_memory_region_new* MR{ create_memory_region(0) };
+
 
 	for (size_t warm_up{}; warm_up < 1000; ++warm_up)
 		parse_beatmap_from_memory(&MR->header, (char*)data.data(), (char*)data.data() + data.size() - 128);
